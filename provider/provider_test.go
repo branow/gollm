@@ -5,17 +5,17 @@ import (
 	"reflect"
 	"testing"
 
-	llm "github.com/branow/gollm"
+	"github.com/branow/gollm"
 )
 
 func TestNewBuildsTheNamedProvider(t *testing.T) {
 	cases := []struct {
 		name string
-		cfg  llm.Config
+		cfg  gollm.Config
 	}{
-		{"anthropic", llm.Config{Provider: "anthropic", APIKey: "k"}},
-		{"openai", llm.Config{Provider: "openai", APIKey: "k", Model: "m"}},
-		{"claudecode", llm.Config{Provider: "claudecode"}},
+		{"anthropic", gollm.Config{Provider: "anthropic", APIKey: "k"}},
+		{"openai", gollm.Config{Provider: "openai", APIKey: "k", Model: "m"}},
+		{"claudecode", gollm.Config{Provider: "claudecode"}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -31,14 +31,14 @@ func TestNewBuildsTheNamedProvider(t *testing.T) {
 }
 
 func TestNewRejectsAnUnknownProvider(t *testing.T) {
-	_, err := New(llm.Config{Provider: "telepathy"})
-	if !errors.Is(err, llm.ErrBadRequest) {
+	_, err := New(gollm.Config{Provider: "telepathy"})
+	if !errors.Is(err, gollm.ErrBadRequest) {
 		t.Fatalf("err = %v", err)
 	}
 }
 
 func TestNewPassesTheProviderFailureThrough(t *testing.T) {
-	if _, err := New(llm.Config{Provider: "anthropic"}); !errors.Is(err, llm.ErrAuth) {
+	if _, err := New(gollm.Config{Provider: "anthropic"}); !errors.Is(err, gollm.ErrAuth) {
 		t.Fatalf("err = %v", err)
 	}
 }

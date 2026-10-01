@@ -9,14 +9,14 @@ import (
 	"testing"
 	"time"
 
-	llm "github.com/branow/gollm"
+	"github.com/branow/gollm"
 )
 
 const schema = `{"type":"object","properties":{"sentence":{"type":"string"}},` +
 	`"required":["sentence"],"additionalProperties":false}`
 
-func request() llm.Request {
-	return llm.Request{
+func request() gollm.Request {
+	return gollm.Request{
 		System: "you are a database cartographer",
 		Prompt: "describe dbo.Example",
 		Schema: json.RawMessage(schema),
@@ -25,7 +25,7 @@ func request() llm.Request {
 
 // serve stands up a fake OpenAI-compatible endpoint and a client pointed at it,
 // and hands back the decoded request body of the last call.
-func serve(t *testing.T, handler http.HandlerFunc) (llm.Client, *map[string]any, *string) {
+func serve(t *testing.T, handler http.HandlerFunc) (gollm.Client, *map[string]any, *string) {
 	t.Helper()
 	body := map[string]any{}
 	path := ""
@@ -108,7 +108,7 @@ func TestCompleteRoundTrip(t *testing.T) {
 	if resp.Model != "test-model" {
 		t.Fatalf("model = %q", resp.Model)
 	}
-	want2 := llm.Usage{InputTokens: 90, OutputTokens: 18, CacheReadTokens: 30}
+	want2 := gollm.Usage{InputTokens: 90, OutputTokens: 18, CacheReadTokens: 30}
 	if resp.Usage != want2 {
 		t.Fatalf("usage = %+v, want %+v", resp.Usage, want2)
 	}
@@ -143,15 +143,15 @@ func TestErrorClassMapping(t *testing.T) {
 		sentinel error
 		after    time.Duration
 	}{
-		{name: "auth", status: http.StatusUnauthorized, sentinel: llm.ErrAuth},
-		{name: "forbidden", status: http.StatusForbidden, sentinel: llm.ErrAuth},
+		{name: "auth", status: http.StatusUnauthorized, sentinel: gollm.ErrAuth},
+		{name: "forbidden", status: http.StatusForbidden, sentinel: gollm.ErrAuth},
 		{
 			name: "rate limited", status: http.StatusTooManyRequests, header: "5",
-			sentinel: llm.ErrRateLimited, after: 5 * time.Second,
+			sentinel: gollm.ErrRateLimited, after: 5 * time.Second,
 		},
-		{name: "unavailable", status: http.StatusBadGateway, sentinel: llm.ErrUnavailable},
-		{name: "bad request", status: http.StatusBadRequest, sentinel: llm.ErrBadRequest},
-		{name: "not found", status: http.StatusNotFound, sentinel: llm.ErrBadRequest},
+		{name: "unavailable", status: http.StatusBadGateway, sentinel: gollm.ErrUnavailable},
+		{name: "bad request", status: http.StatusBadRequest, sentinel: gollm.ErrBadRequest},
+		{name: "not found", status: http.StatusNotFound, sentinel: gollm.ErrBadRequest},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -169,9 +169,9 @@ func TestErrorClassMapping(t *testing.T) {
 			if !errors.Is(err, c.sentinel) {
 				t.Fatalf("err = %v, want %v", err, c.sentinel)
 			}
-			var e *llm.Error
+			var e *gollm.Error
 			if !errors.As(err, &e) {
-				t.Fatalf("err = %v is not an *llm.Error", err)
+				t.Fatalf("err = %v is not an *gollm.Error", err)
 			}
 			if e.Provider != Name {
 				t.Fatalf("provider = %q", e.Provider)
@@ -195,10 +195,10 @@ func TestRefusalIsReportedNotRetried(t *testing.T) {
 	})
 
 	_, err := client.Complete(context.Background(), request())
-	if !errors.Is(err, llm.ErrRefused) {
+	if !errors.Is(err, gollm.ErrRefused) {
 		t.Fatalf("err = %v", err)
 	}
-	if llm.Retryable(err) {
+	if gollm.Retryable(err) {
 		t.Fatal("a refusal was called retryable")
 	}
 }
@@ -211,7 +211,7 @@ func TestNonJSONAnswerIsASchemaFailure(t *testing.T) {
 			"usage":{"prompt_tokens":1,"completion_tokens":1}}`)
 	})
 
-	if _, err := client.Complete(context.Background(), request()); !errors.Is(err, llm.ErrSchema) {
+	if _, err := client.Complete(context.Background(), request()); !errors.Is(err, gollm.ErrSchema) {
 		t.Fatalf("err = %v", err)
 	}
 }
@@ -226,7 +226,7 @@ func TestTransportFailureIsUnavailable(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = client.Complete(context.Background(), request())
-	if !errors.Is(err, llm.ErrUnavailable) {
+	if !errors.Is(err, gollm.ErrUnavailable) {
 		t.Fatalf("err = %v", err)
 	}
 }
@@ -238,7 +238,7 @@ func TestMalformedSchemaIsABadRequest(t *testing.T) {
 	req := request()
 	req.Schema = json.RawMessage(`not json`)
 
-	if _, err := client.Complete(context.Background(), req); !errors.Is(err, llm.ErrBadRequest) {
+	if _, err := client.Complete(context.Background(), req); !errors.Is(err, gollm.ErrBadRequest) {
 		t.Fatalf("err = %v", err)
 	}
 }
@@ -248,7 +248,7 @@ func TestMissingModelIsABadRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := client.Complete(context.Background(), request()); !errors.Is(err, llm.ErrBadRequest) {
+	if _, err := client.Complete(context.Background(), request()); !errors.Is(err, gollm.ErrBadRequest) {
 		t.Fatalf("err = %v", err)
 	}
 }
@@ -259,7 +259,7 @@ func TestLocalEndpointNeedsNoKey(t *testing.T) {
 	if _, err := New(Config{BaseURL: "http://localhost:11434/v1", Model: "m"}); err != nil {
 		t.Fatalf("err = %v", err)
 	}
-	if _, err := New(Config{Model: "m"}); !errors.Is(err, llm.ErrAuth) {
+	if _, err := New(Config{Model: "m"}); !errors.Is(err, gollm.ErrAuth) {
 		t.Fatalf("err = %v, want an auth failure for the hosted API", err)
 	}
 }

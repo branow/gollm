@@ -1,4 +1,4 @@
-package llm
+package gollm
 
 import (
 	"errors"
@@ -26,14 +26,14 @@ const (
 	ClassBadRequest
 )
 
-// The six sentinels, so a caller can write errors.Is(err, llm.ErrRateLimited).
+// The six sentinels, so a caller can write errors.Is(err, gollm.ErrRateLimited).
 var (
-	ErrAuth        = errors.New("llm: credentials rejected or absent")
-	ErrRateLimited = errors.New("llm: rate limited")
-	ErrUnavailable = errors.New("llm: provider unavailable")
-	ErrRefused     = errors.New("llm: model declined to answer")
-	ErrSchema      = errors.New("llm: response did not satisfy the schema")
-	ErrBadRequest  = errors.New("llm: request rejected")
+	ErrAuth        = errors.New("gollm: credentials rejected or absent")
+	ErrRateLimited = errors.New("gollm: rate limited")
+	ErrUnavailable = errors.New("gollm: provider unavailable")
+	ErrRefused     = errors.New("gollm: model declined to answer")
+	ErrSchema      = errors.New("gollm: response did not satisfy the schema")
+	ErrBadRequest  = errors.New("gollm: request rejected")
 )
 
 // sentinels ties the class and sentinel vocabularies together.
@@ -65,7 +65,7 @@ func (c Class) String() string {
 	if s, ok := sentinels[c]; ok {
 		return s.Error()
 	}
-	return "llm: unknown error class"
+	return "gollm: unknown error class"
 }
 
 // Error is the structured failure every provider returns. Context lives on

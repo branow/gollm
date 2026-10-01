@@ -10,7 +10,7 @@ import (
 
 	sdk "github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
-	llm "github.com/branow/gollm"
+	"github.com/branow/gollm"
 )
 
 // Name is the provider's identity, used in cache keys and logs.
@@ -28,20 +28,20 @@ type Config struct {
 	APIKey string
 	// BaseURL overrides the API endpoint. Empty means the SDK's default.
 	BaseURL string
-	// Model is the default model. Empty means llm.DefaultModel.
+	// Model is the default model. Empty means gollm.DefaultModel.
 	Model string
 	// MaxTokens is the default answer cap. 0 means DefaultMaxTokens.
 	MaxTokens int
 }
 
 // New returns a client for the Claude API. Retries are turned off in the SDK:
-// retrying is llm.WithRetry's job, and two layers of it would multiply.
-func New(cfg Config) (llm.Client, error) {
+// retrying is gollm.WithRetry's job, and two layers of it would multiply.
+func New(cfg Config) (gollm.Client, error) {
 	if cfg.APIKey == "" {
-		return nil, &llm.Error{Class: llm.ClassAuth, Provider: Name, Detail: "no api key"}
+		return nil, &gollm.Error{Class: gollm.ClassAuth, Provider: Name, Detail: "no api key"}
 	}
 	if cfg.Model == "" {
-		cfg.Model = llm.DefaultModel
+		cfg.Model = gollm.DefaultModel
 	}
 	if cfg.MaxTokens <= 0 {
 		cfg.MaxTokens = DefaultMaxTokens
@@ -64,7 +64,7 @@ type provider struct {
 
 func (p *provider) Name() string { return Name }
 
-func (p *provider) Complete(ctx context.Context, req llm.Request) (*llm.Response, error) {
+func (p *provider) Complete(ctx context.Context, req gollm.Request) (*gollm.Response, error) {
 	model := req.Model
 	if model == "" {
 		model = p.cfg.Model
@@ -76,8 +76,8 @@ func (p *provider) Complete(ctx context.Context, req llm.Request) (*llm.Response
 
 	var schema map[string]any
 	if err := json.Unmarshal(req.Schema, &schema); err != nil {
-		return nil, &llm.Error{
-			Class: llm.ClassBadRequest, Provider: Name, Model: model,
+		return nil, &gollm.Error{
+			Class: gollm.ClassBadRequest, Provider: Name, Model: model,
 			Detail: "schema is not a JSON object", Err: err,
 		}
 	}
@@ -101,8 +101,8 @@ func (p *provider) Complete(ctx context.Context, req llm.Request) (*llm.Response
 		return nil, fault(err, model)
 	}
 	if message.StopReason == sdk.StopReasonRefusal {
-		return nil, &llm.Error{
-			Class: llm.ClassRefused, Provider: Name, Model: string(message.Model),
+		return nil, &gollm.Error{
+			Class: gollm.ClassRefused, Provider: Name, Model: string(message.Model),
 			Detail: message.StopDetails.Explanation,
 		}
 	}
@@ -115,16 +115,16 @@ func (p *provider) Complete(ctx context.Context, req llm.Request) (*llm.Response
 	}
 	structured := strings.TrimSpace(text.String())
 	if !json.Valid([]byte(structured)) {
-		return nil, &llm.Error{
-			Class: llm.ClassSchema, Provider: Name, Model: string(message.Model),
+		return nil, &gollm.Error{
+			Class: gollm.ClassSchema, Provider: Name, Model: string(message.Model),
 			Detail: "answer was not valid JSON",
 		}
 	}
 
-	return &llm.Response{
+	return &gollm.Response{
 		Structured: json.RawMessage(structured),
 		Model:      string(message.Model),
-		Usage: llm.Usage{
+		Usage: gollm.Usage{
 			InputTokens:     int(message.Usage.InputTokens),
 			OutputTokens:    int(message.Usage.OutputTokens),
 			CacheReadTokens: int(message.Usage.CacheReadInputTokens),
@@ -141,15 +141,15 @@ func fault(err error, model string) error {
 		if api.Response != nil {
 			after = api.Response.Header.Get("Retry-After")
 		}
-		return &llm.Error{
-			Class:      llm.ClassifyStatus(api.StatusCode),
+		return &gollm.Error{
+			Class:      gollm.ClassifyStatus(api.StatusCode),
 			Provider:   Name,
 			Model:      model,
 			Status:     api.StatusCode,
-			RetryAfter: llm.ParseRetryAfter(after),
+			RetryAfter: gollm.ParseRetryAfter(after),
 			Detail:     string(api.Type()),
 			Err:        err,
 		}
 	}
-	return &llm.Error{Class: llm.ClassUnavailable, Provider: Name, Model: model, Err: err}
+	return &gollm.Error{Class: gollm.ClassUnavailable, Provider: Name, Model: model, Err: err}
 }

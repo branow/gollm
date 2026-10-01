@@ -1,11 +1,11 @@
-package llm
+package gollm
 
 // DefaultModel is small on purpose: a describe stage must not default large.
 const DefaultModel = "claude-haiku-4-5"
 
 // Config is the seam between a host application's configuration system and this
 // module. Reading YAML, resolving profiles and fetching an API key are the host's
-// job; llm/provider.New maps a Config onto a provider constructor.
+// job; gollm/provider.New maps a Config onto a provider constructor.
 type Config struct {
 	Provider string
 	Model    string

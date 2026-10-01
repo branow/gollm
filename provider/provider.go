@@ -1,19 +1,19 @@
-// Package provider maps an llm.Config onto one of the provider packages. It is
-// separate because the providers import llm, so llm cannot import them back.
+// Package provider maps an gollm.Config onto one of the provider packages. It is
+// separate because the providers import gollm, so gollm cannot import them back.
 package provider
 
 import (
 	"sort"
 
-	llm "github.com/branow/gollm"
+	"github.com/branow/gollm"
 	"github.com/branow/gollm/anthropic"
 	"github.com/branow/gollm/claudecode"
 	"github.com/branow/gollm/openai"
 )
 
 // constructors is the whole registry; nothing registers globally.
-var constructors = map[string]func(llm.Config) (llm.Client, error){
-	anthropic.Name: func(cfg llm.Config) (llm.Client, error) {
+var constructors = map[string]func(gollm.Config) (gollm.Client, error){
+	anthropic.Name: func(cfg gollm.Config) (gollm.Client, error) {
 		return anthropic.New(anthropic.Config{
 			APIKey:    cfg.APIKey,
 			BaseURL:   cfg.BaseURL,
@@ -21,7 +21,7 @@ var constructors = map[string]func(llm.Config) (llm.Client, error){
 			MaxTokens: cfg.MaxTokens,
 		})
 	},
-	openai.Name: func(cfg llm.Config) (llm.Client, error) {
+	openai.Name: func(cfg gollm.Config) (gollm.Client, error) {
 		return openai.New(openai.Config{
 			APIKey:    cfg.APIKey,
 			BaseURL:   cfg.BaseURL,
@@ -29,7 +29,7 @@ var constructors = map[string]func(llm.Config) (llm.Client, error){
 			MaxTokens: cfg.MaxTokens,
 		})
 	},
-	claudecode.Name: func(cfg llm.Config) (llm.Client, error) {
+	claudecode.Name: func(cfg gollm.Config) (gollm.Client, error) {
 		return claudecode.New(claudecode.Config{
 			Command: cfg.Command,
 			Model:   cfg.Model,
@@ -38,11 +38,11 @@ var constructors = map[string]func(llm.Config) (llm.Client, error){
 }
 
 // New builds the client a config names.
-func New(cfg llm.Config) (llm.Client, error) {
+func New(cfg gollm.Config) (gollm.Client, error) {
 	construct, ok := constructors[cfg.Provider]
 	if !ok {
-		return nil, &llm.Error{
-			Class: llm.ClassBadRequest, Provider: cfg.Provider, Detail: "unknown provider",
+		return nil, &gollm.Error{
+			Class: gollm.ClassBadRequest, Provider: cfg.Provider, Detail: "unknown provider",
 		}
 	}
 	return construct(cfg)

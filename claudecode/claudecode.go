@@ -12,7 +12,7 @@ import (
 	"os/exec"
 	"strings"
 
-	llm "github.com/branow/gollm"
+	"github.com/branow/gollm"
 )
 
 // Name is the provider's identity.
@@ -25,17 +25,17 @@ const DefaultCommand = "claude"
 type Config struct {
 	// Command is the executable to run. Empty means DefaultCommand.
 	Command string
-	// Model is the default model. Empty means llm.DefaultModel.
+	// Model is the default model. Empty means gollm.DefaultModel.
 	Model string
 }
 
 // New returns a client that shells out to the Claude Code CLI.
-func New(cfg Config) (llm.Client, error) {
+func New(cfg Config) (gollm.Client, error) {
 	if cfg.Command == "" {
 		cfg.Command = DefaultCommand
 	}
 	if cfg.Model == "" {
-		cfg.Model = llm.DefaultModel
+		cfg.Model = gollm.DefaultModel
 	}
 	return &provider{cfg: cfg}, nil
 }
@@ -60,14 +60,14 @@ type result struct {
 	} `json:"usage"`
 }
 
-// subtypes maps the CLI's failure vocabulary onto llm classes; anything
+// subtypes maps the CLI's failure vocabulary onto gollm classes; anything
 // unlisted is transient.
-var subtypes = map[string]llm.Class{
-	"error_max_turns":        llm.ClassRefused,
-	"error_during_execution": llm.ClassUnavailable,
+var subtypes = map[string]gollm.Class{
+	"error_max_turns":        gollm.ClassRefused,
+	"error_during_execution": gollm.ClassUnavailable,
 }
 
-func (p *provider) Complete(ctx context.Context, req llm.Request) (*llm.Response, error) {
+func (p *provider) Complete(ctx context.Context, req gollm.Request) (*gollm.Response, error) {
 	model := req.Model
 	if model == "" {
 		model = p.cfg.Model
@@ -109,24 +109,24 @@ func (p *provider) Complete(ctx context.Context, req llm.Request) (*llm.Response
 	if answer.IsError || (runErr != nil && parsed) {
 		class, ok := subtypes[answer.Subtype]
 		if !ok {
-			class = llm.ClassUnavailable
+			class = gollm.ClassUnavailable
 		}
-		return nil, &llm.Error{
+		return nil, &gollm.Error{
 			Class: class, Provider: Name, Model: model,
 			Detail: answer.Result, Err: runErr,
 		}
 	}
 	if len(answer.StructuredOutput) == 0 || !json.Valid(answer.StructuredOutput) {
-		return nil, &llm.Error{
-			Class: llm.ClassSchema, Provider: Name, Model: model,
+		return nil, &gollm.Error{
+			Class: gollm.ClassSchema, Provider: Name, Model: model,
 			Detail: "no structured output in the result",
 		}
 	}
 
-	return &llm.Response{
+	return &gollm.Response{
 		Structured: answer.StructuredOutput,
 		Model:      model,
-		Usage: llm.Usage{
+		Usage: gollm.Usage{
 			InputTokens:     answer.Usage.InputTokens,
 			OutputTokens:    answer.Usage.OutputTokens,
 			CacheReadTokens: answer.Usage.CacheReadInputTokens,
@@ -138,10 +138,10 @@ func (p *provider) Complete(ctx context.Context, req llm.Request) (*llm.Response
 // launchFault classifies a run that produced no parseable result. A missing or
 // unexecutable binary is a configuration fault; everything else is transient.
 func launchFault(err error, model, detail string) error {
-	class := llm.ClassUnavailable
+	class := gollm.ClassUnavailable
 	if errors.Is(err, exec.ErrNotFound) || errors.Is(err, os.ErrNotExist) ||
 		errors.Is(err, os.ErrPermission) {
-		class = llm.ClassBadRequest
+		class = gollm.ClassBadRequest
 	}
-	return &llm.Error{Class: class, Provider: Name, Model: model, Detail: detail, Err: err}
+	return &gollm.Error{Class: class, Provider: Name, Model: model, Detail: detail, Err: err}
 }

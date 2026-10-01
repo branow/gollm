@@ -5,8 +5,8 @@ module does and why it is shaped this way; read it before writing code.
 
 ## Stack
 
-Go, one module: `github.com/branow/gollm`. The root package is named `llm`, so import
-it aliased: `llm "github.com/branow/gollm"`. No CLI, no main package, no framework
+Go, one module: `github.com/branow/gollm`, whose root package is `gollm`; the provider
+packages sit beside it and import it. No CLI, no main package, no framework
 dependencies.
 
 Dependencies are **pinned**. Never run a bare `go get`, never upgrade a pin as a side
@@ -24,7 +24,7 @@ gofmt -l .        # must print nothing
 This is a provider seam: one prompt plus one JSON schema in, one structured answer
 out, plus middleware that wraps a `Client` and returns a `Client`. Chat history, tool
 calling, streaming, agent loops and config-file parsing are the caller's business and
-do not belong here. A new provider is a new package implementing `llm.Client`; a new
+do not belong here. A new provider is a new package implementing `gollm.Client`; a new
 cross-cutting concern is a new middleware.
 
 The public API is a contract with other repositories. A breaking change to `Client`,
@@ -45,7 +45,7 @@ implementation detail — stop and report it rather than making it.
 ## Code
 
 - Errors are structured values, never formatted strings. Every error leaving this
-  module is an `*llm.Error` with a `Class`, because the caller's retry and exit-code
+  module is an `*gollm.Error` with a `Class`, because the caller's retry and exit-code
   decisions depend on the class and string-matching a provider's prose is not a
   decision procedure.
 - Rule lists are **data walked by an engine**, never an if/else ladder. Provider

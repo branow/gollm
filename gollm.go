@@ -1,6 +1,6 @@
-// Package llm is a provider seam: one prompt plus one JSON schema in, one
+// Package gollm is a provider seam: one prompt plus one JSON schema in, one
 // structured answer out. It is deliberately not an agent framework.
-package llm
+package gollm
 
 import (
 	"context"

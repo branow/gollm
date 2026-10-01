@@ -13,13 +13,13 @@ import (
 	"sync"
 	"testing"
 
-	llm "github.com/branow/gollm"
+	"github.com/branow/gollm"
 )
 
 const schema = `{"type":"object","properties":{"sentence":{"type":"string"}}}`
 
-func request() llm.Request {
-	return llm.Request{
+func request() gollm.Request {
+	return gollm.Request{
 		System: "you are a database cartographer",
 		Prompt: "describe dbo.Example",
 		Schema: json.RawMessage(schema),
@@ -161,7 +161,7 @@ func stub(t *testing.T, stdout string, exit int) stubbed {
 	return stubbed{dir: dir}
 }
 
-func client(t *testing.T) llm.Client {
+func client(t *testing.T) gollm.Client {
 	t.Helper()
 	c, err := New(Config{})
 	if err != nil {
@@ -191,7 +191,7 @@ func TestCompleteRoundTrip(t *testing.T) {
 	for _, pair := range [][2]string{
 		{"--output-format", "json"},
 		{"--allowedTools", ""},
-		{"--model", llm.DefaultModel},
+		{"--model", gollm.DefaultModel},
 		{"--append-system-prompt", request().System},
 	} {
 		if !hasPair(args, pair[0], pair[1]) {
@@ -212,10 +212,10 @@ func TestCompleteRoundTrip(t *testing.T) {
 	if string(resp.Structured) != `{"sentence":"Reads dbo.Example."}` {
 		t.Fatalf("structured = %s", resp.Structured)
 	}
-	if resp.Model != llm.DefaultModel {
+	if resp.Model != gollm.DefaultModel {
 		t.Fatalf("model = %q", resp.Model)
 	}
-	want := llm.Usage{InputTokens: 120, OutputTokens: 24, CacheReadTokens: 40, Cost: 0.0031}
+	want := gollm.Usage{InputTokens: 120, OutputTokens: 24, CacheReadTokens: 40, Cost: 0.0031}
 	if resp.Usage != want {
 		t.Fatalf("usage = %+v, want %+v", resp.Usage, want)
 	}
@@ -231,7 +231,7 @@ func TestUsageComesBackMostlyZeroed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("err = %v", err)
 	}
-	if (resp.Usage != llm.Usage{}) {
+	if (resp.Usage != gollm.Usage{}) {
 		t.Fatalf("usage = %+v, want zero", resp.Usage)
 	}
 }
@@ -269,26 +269,26 @@ func TestErrorClassMapping(t *testing.T) {
 		{
 			name:   "max turns is a refusal",
 			stdout: `{"type":"result","subtype":"error_max_turns","is_error":true}`,
-			exit:   1, sentinel: llm.ErrRefused,
+			exit:   1, sentinel: gollm.ErrRefused,
 		},
 		{
 			name:   "execution failure is transient",
 			stdout: `{"type":"result","subtype":"error_during_execution","is_error":true}`,
-			exit:   1, sentinel: llm.ErrUnavailable,
+			exit:   1, sentinel: gollm.ErrUnavailable,
 		},
 		{
 			name:   "an unknown failure is transient",
 			stdout: `{"type":"result","subtype":"error_other","is_error":true}`,
-			exit:   1, sentinel: llm.ErrUnavailable,
+			exit:   1, sentinel: gollm.ErrUnavailable,
 		},
 		{
 			name:   "no structured output is a schema failure",
 			stdout: `{"type":"result","subtype":"success","is_error":false,"result":"sorry"}`,
-			exit:   0, sentinel: llm.ErrSchema,
+			exit:   0, sentinel: gollm.ErrSchema,
 		},
 		{
 			name: "unparseable output is transient", stdout: "segmentation fault",
-			exit: 2, sentinel: llm.ErrUnavailable,
+			exit: 2, sentinel: gollm.ErrUnavailable,
 		},
 	}
 	for _, c := range cases {
@@ -298,9 +298,9 @@ func TestErrorClassMapping(t *testing.T) {
 			if !errors.Is(err, c.sentinel) {
 				t.Fatalf("err = %v, want %v", err, c.sentinel)
 			}
-			var e *llm.Error
+			var e *gollm.Error
 			if !errors.As(err, &e) {
-				t.Fatalf("err = %v is not an *llm.Error", err)
+				t.Fatalf("err = %v is not an *gollm.Error", err)
 			}
 			if e.Provider != Name {
 				t.Fatalf("provider = %q", e.Provider)
@@ -318,10 +318,10 @@ func TestMissingBinaryIsABadRequest(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = c.Complete(context.Background(), request())
-	if !errors.Is(err, llm.ErrBadRequest) {
+	if !errors.Is(err, gollm.ErrBadRequest) {
 		t.Fatalf("err = %v", err)
 	}
-	if llm.Retryable(err) {
+	if gollm.Retryable(err) {
 		t.Fatal("a missing binary was called retryable")
 	}
 }
@@ -332,7 +332,7 @@ func TestCancelledContextIsUnavailable(t *testing.T) {
 	cancel()
 
 	_, err := client(t).Complete(ctx, request())
-	if !errors.Is(err, llm.ErrUnavailable) {
+	if !errors.Is(err, gollm.ErrUnavailable) {
 		t.Fatalf("err = %v", err)
 	}
 	if !errors.Is(err, context.Canceled) {

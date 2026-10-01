@@ -1,4 +1,4 @@
-package llm
+package gollm
 
 import (
 	"context"
@@ -65,7 +65,7 @@ func TestDefaultModelIsTheSmallOne(t *testing.T) {
 // reintroduces it. That doc comment is load-bearing, so it is pinned here.
 func TestSchemaFieldCarriesTheDescriptionWarning(t *testing.T) {
 	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, "llm.go", nil, parser.ParseComments)
+	file, err := parser.ParseFile(fset, "gollm.go", nil, parser.ParseComments)
 	if err != nil {
 		t.Fatal(err)
 	}

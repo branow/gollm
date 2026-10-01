@@ -9,13 +9,13 @@ import (
 	"testing"
 	"time"
 
-	llm "github.com/branow/gollm"
+	"github.com/branow/gollm"
 )
 
 const schema = `{"type":"object","properties":{"sentence":{"type":"string"}}}`
 
-func request() llm.Request {
-	return llm.Request{
+func request() gollm.Request {
+	return gollm.Request{
 		System: "you are a database cartographer",
 		Prompt: "describe dbo.Example",
 		Schema: json.RawMessage(schema),
@@ -24,7 +24,7 @@ func request() llm.Request {
 
 // serve stands up a fake Claude API and a client pointed at it, and hands back
 // the decoded request body of the last call.
-func serve(t *testing.T, handler http.HandlerFunc) (llm.Client, *map[string]any, *string) {
+func serve(t *testing.T, handler http.HandlerFunc) (gollm.Client, *map[string]any, *string) {
 	t.Helper()
 	body := map[string]any{}
 	path := ""
@@ -70,8 +70,8 @@ func TestCompleteRoundTrip(t *testing.T) {
 	if *path != "/v1/messages" {
 		t.Fatalf("path = %q", *path)
 	}
-	if got := (*body)["model"]; got != llm.DefaultModel {
-		t.Fatalf("model = %v, want %v", got, llm.DefaultModel)
+	if got := (*body)["model"]; got != gollm.DefaultModel {
+		t.Fatalf("model = %v, want %v", got, gollm.DefaultModel)
 	}
 	format := (*body)["output_config"].(map[string]any)["format"].(map[string]any)
 	if format["type"] != "json_schema" {
@@ -98,7 +98,7 @@ func TestCompleteRoundTrip(t *testing.T) {
 	if resp.Model != "claude-haiku-4-5" {
 		t.Fatalf("model = %q", resp.Model)
 	}
-	want2 := llm.Usage{InputTokens: 120, OutputTokens: 24, CacheReadTokens: 40}
+	want2 := gollm.Usage{InputTokens: 120, OutputTokens: 24, CacheReadTokens: 40}
 	if resp.Usage != want2 {
 		t.Fatalf("usage = %+v, want %+v", resp.Usage, want2)
 	}
@@ -135,25 +135,25 @@ func TestErrorClassMapping(t *testing.T) {
 		after    time.Duration
 	}{
 		{
-			name: "auth", status: http.StatusUnauthorized, sentinel: llm.ErrAuth,
+			name: "auth", status: http.StatusUnauthorized, sentinel: gollm.ErrAuth,
 			payload: `{"type":"error","error":{"type":"authentication_error","message":"no"}}`,
 		},
 		{
 			name: "rate limited", status: http.StatusTooManyRequests,
-			header: "12", sentinel: llm.ErrRateLimited, after: 12 * time.Second,
+			header: "12", sentinel: gollm.ErrRateLimited, after: 12 * time.Second,
 			payload: `{"type":"error","error":{"type":"rate_limit_error","message":"slow"}}`,
 		},
 		{
 			name: "unavailable", status: http.StatusInternalServerError,
-			sentinel: llm.ErrUnavailable,
+			sentinel: gollm.ErrUnavailable,
 			payload:  `{"type":"error","error":{"type":"api_error","message":"boom"}}`,
 		},
 		{
-			name: "overloaded", status: 529, sentinel: llm.ErrUnavailable,
+			name: "overloaded", status: 529, sentinel: gollm.ErrUnavailable,
 			payload: `{"type":"error","error":{"type":"overloaded_error","message":"busy"}}`,
 		},
 		{
-			name: "bad request", status: http.StatusBadRequest, sentinel: llm.ErrBadRequest,
+			name: "bad request", status: http.StatusBadRequest, sentinel: gollm.ErrBadRequest,
 			payload: `{"type":"error","error":{"type":"invalid_request_error","message":"long"}}`,
 		},
 	}
@@ -172,9 +172,9 @@ func TestErrorClassMapping(t *testing.T) {
 			if !errors.Is(err, c.sentinel) {
 				t.Fatalf("err = %v, want %v", err, c.sentinel)
 			}
-			var e *llm.Error
+			var e *gollm.Error
 			if !errors.As(err, &e) {
-				t.Fatalf("err = %v is not an *llm.Error", err)
+				t.Fatalf("err = %v is not an *gollm.Error", err)
 			}
 			if e.Provider != Name {
 				t.Fatalf("provider = %q", e.Provider)
@@ -198,13 +198,13 @@ func TestRefusalIsReportedNotRetried(t *testing.T) {
 	})
 
 	_, err := client.Complete(context.Background(), request())
-	if !errors.Is(err, llm.ErrRefused) {
+	if !errors.Is(err, gollm.ErrRefused) {
 		t.Fatalf("err = %v", err)
 	}
-	if llm.Retryable(err) {
+	if gollm.Retryable(err) {
 		t.Fatal("a refusal was called retryable")
 	}
-	var e *llm.Error
+	var e *gollm.Error
 	_ = errors.As(err, &e)
 	if e.Detail != "declined" {
 		t.Fatalf("detail = %q", e.Detail)
@@ -218,7 +218,7 @@ func TestNonJSONAnswerIsASchemaFailure(t *testing.T) {
 			"stop_reason":"end_turn","usage":{"input_tokens":1,"output_tokens":1}}`)
 	})
 
-	if _, err := client.Complete(context.Background(), request()); !errors.Is(err, llm.ErrSchema) {
+	if _, err := client.Complete(context.Background(), request()); !errors.Is(err, gollm.ErrSchema) {
 		t.Fatalf("err = %v", err)
 	}
 }
@@ -233,7 +233,7 @@ func TestTransportFailureIsUnavailable(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = client.Complete(context.Background(), request())
-	if !errors.Is(err, llm.ErrUnavailable) {
+	if !errors.Is(err, gollm.ErrUnavailable) {
 		t.Fatalf("err = %v", err)
 	}
 }
@@ -245,14 +245,14 @@ func TestMalformedSchemaIsABadRequest(t *testing.T) {
 	req := request()
 	req.Schema = json.RawMessage(`not json`)
 
-	if _, err := client.Complete(context.Background(), req); !errors.Is(err, llm.ErrBadRequest) {
+	if _, err := client.Complete(context.Background(), req); !errors.Is(err, gollm.ErrBadRequest) {
 		t.Fatalf("err = %v", err)
 	}
 }
 
 func TestMissingKeyIsAnAuthFailure(t *testing.T) {
 	_, err := New(Config{})
-	if !errors.Is(err, llm.ErrAuth) {
+	if !errors.Is(err, gollm.ErrAuth) {
 		t.Fatalf("err = %v", err)
 	}
 }

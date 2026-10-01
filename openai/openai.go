@@ -14,7 +14,7 @@ import (
 	"github.com/openai/openai-go/v3/option"
 	"github.com/openai/openai-go/v3/shared"
 
-	llm "github.com/branow/gollm"
+	"github.com/branow/gollm"
 )
 
 // Name is the provider's identity.
@@ -37,10 +37,10 @@ type Config struct {
 }
 
 // New returns a client for an OpenAI-compatible endpoint. SDK retries are off:
-// retrying is llm.WithRetry's job and two layers would multiply.
-func New(cfg Config) (llm.Client, error) {
+// retrying is gollm.WithRetry's job and two layers would multiply.
+func New(cfg Config) (gollm.Client, error) {
 	if cfg.APIKey == "" && cfg.BaseURL == "" {
-		return nil, &llm.Error{Class: llm.ClassAuth, Provider: Name, Detail: "no api key"}
+		return nil, &gollm.Error{Class: gollm.ClassAuth, Provider: Name, Detail: "no api key"}
 	}
 	options := []option.RequestOption{option.WithMaxRetries(0)}
 	if cfg.APIKey != "" {
@@ -60,14 +60,14 @@ type provider struct {
 
 func (p *provider) Name() string { return Name }
 
-func (p *provider) Complete(ctx context.Context, req llm.Request) (*llm.Response, error) {
+func (p *provider) Complete(ctx context.Context, req gollm.Request) (*gollm.Response, error) {
 	model := req.Model
 	if model == "" {
 		model = p.cfg.Model
 	}
 	if model == "" {
-		return nil, &llm.Error{
-			Class: llm.ClassBadRequest, Provider: Name, Detail: "no model configured",
+		return nil, &gollm.Error{
+			Class: gollm.ClassBadRequest, Provider: Name, Detail: "no model configured",
 		}
 	}
 	maxTokens := req.MaxTokens
@@ -77,8 +77,8 @@ func (p *provider) Complete(ctx context.Context, req llm.Request) (*llm.Response
 
 	var schema map[string]any
 	if err := json.Unmarshal(req.Schema, &schema); err != nil {
-		return nil, &llm.Error{
-			Class: llm.ClassBadRequest, Provider: Name, Model: model,
+		return nil, &gollm.Error{
+			Class: gollm.ClassBadRequest, Provider: Name, Model: model,
 			Detail: "schema is not a JSON object", Err: err,
 		}
 	}
@@ -111,30 +111,30 @@ func (p *provider) Complete(ctx context.Context, req llm.Request) (*llm.Response
 		return nil, fault(err, model)
 	}
 	if len(completion.Choices) == 0 {
-		return nil, &llm.Error{
-			Class: llm.ClassSchema, Provider: Name, Model: completion.Model,
+		return nil, &gollm.Error{
+			Class: gollm.ClassSchema, Provider: Name, Model: completion.Model,
 			Detail: "no choices in response",
 		}
 	}
 	choice := completion.Choices[0]
 	if choice.Message.Refusal != "" {
-		return nil, &llm.Error{
-			Class: llm.ClassRefused, Provider: Name, Model: completion.Model,
+		return nil, &gollm.Error{
+			Class: gollm.ClassRefused, Provider: Name, Model: completion.Model,
 			Detail: choice.Message.Refusal,
 		}
 	}
 	structured := strings.TrimSpace(choice.Message.Content)
 	if !json.Valid([]byte(structured)) {
-		return nil, &llm.Error{
-			Class: llm.ClassSchema, Provider: Name, Model: completion.Model,
+		return nil, &gollm.Error{
+			Class: gollm.ClassSchema, Provider: Name, Model: completion.Model,
 			Detail: "answer was not valid JSON",
 		}
 	}
 
-	return &llm.Response{
+	return &gollm.Response{
 		Structured: json.RawMessage(structured),
 		Model:      completion.Model,
-		Usage: llm.Usage{
+		Usage: gollm.Usage{
 			InputTokens:     int(completion.Usage.PromptTokens),
 			OutputTokens:    int(completion.Usage.CompletionTokens),
 			CacheReadTokens: int(completion.Usage.PromptTokensDetails.CachedTokens),
@@ -142,7 +142,7 @@ func (p *provider) Complete(ctx context.Context, req llm.Request) (*llm.Response
 	}, nil
 }
 
-// fault maps an SDK failure onto an llm class; anything without an HTTP status
+// fault maps an SDK failure onto a gollm class; anything without an HTTP status
 // is a transport failure.
 func fault(err error, model string) error {
 	var api *sdk.Error
@@ -151,15 +151,15 @@ func fault(err error, model string) error {
 		if api.Response != nil {
 			after = api.Response.Header.Get("Retry-After")
 		}
-		return &llm.Error{
-			Class:      llm.ClassifyStatus(api.StatusCode),
+		return &gollm.Error{
+			Class:      gollm.ClassifyStatus(api.StatusCode),
 			Provider:   Name,
 			Model:      model,
 			Status:     api.StatusCode,
-			RetryAfter: llm.ParseRetryAfter(after),
+			RetryAfter: gollm.ParseRetryAfter(after),
 			Detail:     api.Type,
 			Err:        err,
 		}
 	}
-	return &llm.Error{Class: llm.ClassUnavailable, Provider: Name, Model: model, Err: err}
+	return &gollm.Error{Class: gollm.ClassUnavailable, Provider: Name, Model: model, Err: err}
 }

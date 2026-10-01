@@ -3,11 +3,8 @@
 One structured-output call, across several providers.
 
 ```go
-import llm "github.com/branow/gollm"
+import "github.com/branow/gollm"
 ```
-
-The import path ends in `gollm`; the package is named `llm`, so alias it as
-above and every symbol below reads `llm.Config`, `llm.Request`.
 
 It exists because no Go library covers both the API providers and the Claude
 Code CLI, and that combination is the useful one: the CLI needs no API key,
@@ -22,11 +19,11 @@ Anything beyond that belongs to the caller.
 
 ```go
 import (
-    llm "github.com/branow/gollm"
+    "github.com/branow/gollm"
     "github.com/branow/gollm/provider"
 )
 
-client, err := provider.New(llm.Config{
+client, err := provider.New(gollm.Config{
     Provider: "claudecode",          // or "anthropic", "openai"
     Model:    "claude-haiku-4-5",
 })
@@ -34,7 +31,7 @@ if err != nil {
     return err
 }
 
-resp, err := client.Complete(ctx, llm.Request{
+resp, err := client.Complete(ctx, gollm.Request{
     Prompt: "Describe this table in one sentence: ...",
     Schema: json.RawMessage(`{
       "type": "object",
@@ -73,10 +70,10 @@ reports whatever usage the CLI hands back and never invents a cost.
 Each wraps a `Client` and returns a `Client`, so they compose in any order.
 
 ```go
-client = llm.WithRetry(client, llm.RetryConfig{})
-client = llm.WithConcurrency(client, 4)
-client = llm.WithCache(client, cacheDir)
-client = llm.WithUsage(client, &total)
+client = gollm.WithRetry(client, gollm.RetryConfig{})
+client = gollm.WithConcurrency(client, 4)
+client = gollm.WithCache(client, cacheDir)
+client = gollm.WithUsage(client, &total)
 ```
 
 - `WithRetry` — exponential backoff with full jitter, honouring `Retry-After`,
@@ -103,8 +100,8 @@ and string-matching a provider's prose is not a decision procedure.
 | `ClassBadRequest` | prompt too long, bad model id | no |
 
 ```go
-var e *llm.Error
-if errors.As(err, &e) && e.Class == llm.ClassRateLimited {
+var e *gollm.Error
+if errors.As(err, &e) && e.Class == gollm.ClassRateLimited {
     // ...
 }
 ```
